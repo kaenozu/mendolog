@@ -124,10 +124,39 @@ class _MendologHomeState extends State<MendologHome> {
   }
 
   Future<void> _startImprovement(ImprovementSuggestion suggestion) async {
+    final detailsController = TextEditingController();
+    final details = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${suggestion.canonicalTarget}の改善'),
+        content: TextField(
+          controller: detailsController,
+          autofocus: true,
+          maxLength: 80,
+          decoration: const InputDecoration(
+            labelText: '場所・手順（任意）',
+            hintText: '例：洗面所の右側の引き出し',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(context, detailsController.text.trim()),
+            child: const Text('改善を始める'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || details == null) return;
     final improvement = Improvement(
       category: suggestion.category,
       canonicalTarget: suggestion.canonicalTarget,
       title: suggestion.title,
+      details: details,
       startedAt: DateTime.now(),
     );
     setState(
@@ -221,13 +250,59 @@ class _MendologHomeState extends State<MendologHome> {
           itemCount: data.events.length,
           itemBuilder: (context, index) {
             final event = data.events[data.events.length - 1 - index];
-            return ListTile(
-              leading: Text(
-                event.category.emoji,
-                style: const TextStyle(fontSize: 24),
+            return Dismissible(
+              key: ValueKey(event.id),
+              direction: DismissDirection.endToStart,
+              confirmDismiss: (_) => showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('記録を削除しますか？'),
+                  content: Text(
+                    '${event.category.label} · ${event.canonicalTarget}',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('キャンセル'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('削除'),
+                    ),
+                  ],
+                ),
               ),
-              title: Text('${event.category.label} · ${event.canonicalTarget}'),
-              subtitle: Text(_formatDate(event.occurredAt)),
+              onDismissed: (_) async {
+                final events = data.events
+                    .where((item) => item.id != event.id)
+                    .toList();
+                setState(
+                  () => data = MendologData(
+                    events: events,
+                    improvements: data.improvements,
+                  ),
+                );
+                await widget.store.save(data);
+              },
+              background: Container(
+                color: Theme.of(context).colorScheme.errorContainer,
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 20),
+                child: Icon(
+                  Icons.delete_outline,
+                  color: Theme.of(context).colorScheme.onErrorContainer,
+                ),
+              ),
+              child: ListTile(
+                leading: Text(
+                  event.category.emoji,
+                  style: const TextStyle(fontSize: 24),
+                ),
+                title: Text(
+                  '${event.category.label} · ${event.canonicalTarget}',
+                ),
+                subtitle: Text(_formatDate(event.occurredAt)),
+              ),
             );
           },
         );
@@ -270,7 +345,7 @@ class _MendologHomeState extends State<MendologHome> {
             return ListTile(
               title: Text('${item.canonicalTarget} · ${item.title}'),
               subtitle: Text(
-                '改善前 ${comparison.before}回 → 改善後 ${comparison.after}回',
+                '${item.details.isEmpty ? '詳細未設定' : item.details}\n改善前 ${comparison.before}回 → 改善後 ${comparison.after}回',
               ),
             );
           }),

@@ -93,4 +93,18 @@ void main() {
     );
     expect(data.suggestions(now), isEmpty);
   });
+
+  test('round trips improvement details through local JSON storage', () {
+    final improvement = Improvement(
+      category: FrictionCategory.searched,
+      canonicalTarget: '爪切り',
+      title: '定位置を決める',
+      details: '洗面所の右側の引き出し',
+      startedAt: now,
+    );
+    final restored = MendologData.decode(
+      MendologData(improvements: [improvement]).encode(),
+    );
+    expect(restored.improvements.single.details, '洗面所の右側の引き出し');
+  });
 }
