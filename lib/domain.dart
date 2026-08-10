@@ -60,12 +60,14 @@ class Improvement {
     required this.category,
     required this.canonicalTarget,
     required this.title,
+    this.details = '',
     required this.startedAt,
   });
 
   final FrictionCategory category;
   final String canonicalTarget;
   final String title;
+  final String details;
   final DateTime startedAt;
 
   String get key => '${category.name}|$canonicalTarget';
@@ -74,6 +76,7 @@ class Improvement {
     'category': category.name,
     'canonicalTarget': canonicalTarget,
     'title': title,
+    'details': details,
     'startedAt': startedAt.toIso8601String(),
   };
 
@@ -81,6 +84,7 @@ class Improvement {
     category: categoryFromJson(json['category'] as String),
     canonicalTarget: json['canonicalTarget'] as String,
     title: json['title'] as String,
+    details: json['details'] as String? ?? '',
     startedAt: DateTime.parse(json['startedAt'] as String),
   );
 }
