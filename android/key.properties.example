@@ -1,0 +1,11 @@
+# Android リリース署名キー設定（コミットしない・生成後は .gitignore で除外済み）
+# 生成コマンド:
+#   keytool -genkeypair -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 \
+#     -validity 10000 -alias upload -storepass "<PASS>" -keypass "<PASS>" \
+#     -dname "CN=mendolog, OU=Development, O=kaenozu, L=Tokyo, ST=Tokyo, C=JP"
+# このファイルを android/key.properties としてコピーし、値を実キーに置き換えること。
+
+storeFile=../upload-keystore.jks
+keyAlias=CHANGE_ME
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
