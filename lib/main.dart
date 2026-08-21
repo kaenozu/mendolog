@@ -66,7 +66,9 @@ class _MendologHomeState extends State<MendologHome> {
           20,
           20,
           20,
-          MediaQuery.viewInsetsOf(context).bottom + 20,
+          MediaQuery.viewInsetsOf(context).bottom +
+              MediaQuery.paddingOf(context).bottom +
+              20,
         ),
         child: StatefulBuilder(
           builder: (context, setSheetState) {
@@ -171,33 +173,47 @@ class _MendologHomeState extends State<MendologHome> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('めんどログ'), centerTitle: false),
-    body: IndexedStack(
-      index: tab,
-      children: [_home(), _history(), _insights()],
+    body: SafeArea(
+      top: false,
+      child: IndexedStack(
+        index: tab,
+        children: [_home(), _history(), _insights()],
+      ),
     ),
-    bottomNavigationBar: NavigationBar(
-      selectedIndex: tab,
-      onDestinationSelected: (value) => setState(() => tab = value),
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.add_circle_outline),
-          label: '記録',
-        ),
-        NavigationDestination(icon: Icon(Icons.history), label: '履歴'),
-        NavigationDestination(icon: Icon(Icons.insights_outlined), label: '集計'),
-      ],
+    bottomNavigationBar: SafeArea(
+      top: false,
+      child: NavigationBar(
+        selectedIndex: tab,
+        onDestinationSelected: (value) => setState(() => tab = value),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.add_circle_outline),
+            label: '記録',
+          ),
+          NavigationDestination(icon: Icon(Icons.history), label: '履歴'),
+          NavigationDestination(
+            icon: Icon(Icons.insights_outlined),
+            label: '集計',
+          ),
+        ],
+      ),
     ),
   );
 
   Widget _home() {
     final suggestions = data.suggestions(DateTime.now());
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        MediaQuery.paddingOf(context).bottom + 28,
+      ),
       children: [
         Text('いま、何がめんどかった？', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 6),
         Text(
-          'タップして対象を選ぶだけ。記録は端末内に保存されます。',
+          '繰り返す面倒を記録すると、直近30日の集計と改善候補が見えてきます。まずは1件だけ残してみましょう。記録は端末内に保存されます。',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 20),
@@ -244,9 +260,14 @@ class _MendologHomeState extends State<MendologHome> {
   }
 
   Widget _history() => data.events.isEmpty
-      ? const Center(child: Text('まだ記録がありません'))
+      ? const Center(child: Text('まだ記録がありません。記録すると、何が多いかを振り返れます。'))
       : ListView.builder(
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.fromLTRB(
+            12,
+            12,
+            12,
+            MediaQuery.paddingOf(context).bottom + 28,
+          ),
           itemCount: data.events.length,
           itemBuilder: (context, index) {
             final event = data.events[data.events.length - 1 - index];
@@ -332,7 +353,12 @@ class _MendologHomeState extends State<MendologHome> {
     }
     final improvements = data.improvements;
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        MediaQuery.paddingOf(context).bottom + 28,
+      ),
       children: [
         Text('直近30日の集計', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 8),
