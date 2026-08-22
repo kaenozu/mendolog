@@ -32,6 +32,33 @@ void main() {
     expect(store.load().events.single.canonicalTarget, '爪切り');
   });
 
+  testWidgets('does not show a successful mutation when persistence fails', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    final store = MendologStore(
+      preferences,
+      writer: (_, _) async => false,
+    );
+
+    await tester.pumpWidget(MendologApp(store: store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('探した'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '鍵');
+    await tester.tap(find.text('記録する'));
+    await tester.pumpAndSettle();
+
+    expect(store.load().events, isEmpty);
+    expect(find.textContaining('保存できませんでした'), findsOneWidget);
+
+    await tester.tap(find.text('履歴'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('まだ記録がありません'), findsOneWidget);
+  });
+
   testWidgets('keeps bottom actions clear of Android navigation insets', (
     tester,
   ) async {
