@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -37,6 +39,33 @@ class MendologHome extends StatefulWidget {
 class _MendologHomeState extends State<MendologHome> {
   late MendologData data = widget.store.load();
   int tab = 0;
+  Future<void> _mutationQueue = Future<void>.value();
+
+  Future<bool> _commitMutation(
+    MendologData Function(MendologData current) buildNext,
+  ) {
+    final result = Completer<bool>();
+    _mutationQueue = _mutationQueue.then((_) async {
+      final next = buildNext(data);
+      try {
+        await widget.store.save(next);
+        if (!mounted) {
+          result.complete(false);
+          return;
+        }
+        setState(() => data = next);
+        result.complete(true);
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('保存できませんでした。内容は変更されていません。もう一度お試しください。')),
+          );
+        }
+        result.complete(false);
+      }
+    });
+    return result.future;
+  }
 
   Future<void> _record(FrictionCategory category, String target) async {
     final clean = canonicalizeTarget(target);
@@ -47,13 +76,12 @@ class _MendologHomeState extends State<MendologHome> {
       target: clean,
       occurredAt: DateTime.now(),
     );
-    setState(
-      () => data = MendologData(
-        events: [...data.events, event],
-        improvements: data.improvements,
+    await _commitMutation(
+      (current) => MendologData(
+        events: [...current.events, event],
+        improvements: current.improvements,
       ),
     );
-    await widget.store.save(data);
   }
 
   Future<void> _openRecorder(FrictionCategory category) async {
@@ -161,13 +189,12 @@ class _MendologHomeState extends State<MendologHome> {
       details: details,
       startedAt: DateTime.now(),
     );
-    setState(
-      () => data = MendologData(
-        events: data.events,
-        improvements: [...data.improvements, improvement],
+    await _commitMutation(
+      (current) => MendologData(
+        events: current.events,
+        improvements: [...current.improvements, improvement],
       ),
     );
-    await widget.store.save(data);
   }
 
   @override
@@ -274,36 +301,35 @@ class _MendologHomeState extends State<MendologHome> {
             return Dismissible(
               key: ValueKey(event.id),
               direction: DismissDirection.endToStart,
-              confirmDismiss: (_) => showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('記録を削除しますか？'),
-                  content: Text(
-                    '${event.category.label} · ${event.canonicalTarget}',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('キャンセル'),
+              confirmDismiss: (_) async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('記録を削除しますか？'),
+                    content: Text(
+                      '${event.category.label} · ${event.canonicalTarget}',
                     ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('削除'),
-                    ),
-                  ],
-                ),
-              ),
-              onDismissed: (_) async {
-                final events = data.events
-                    .where((item) => item.id != event.id)
-                    .toList();
-                setState(
-                  () => data = MendologData(
-                    events: events,
-                    improvements: data.improvements,
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('キャンセル'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('削除'),
+                      ),
+                    ],
                   ),
                 );
-                await widget.store.save(data);
+                if (confirmed != true) return false;
+                return _commitMutation(
+                  (current) => MendologData(
+                    events: current.events
+                        .where((item) => item.id != event.id)
+                        .toList(),
+                    improvements: current.improvements,
+                  ),
+                );
               },
               background: Container(
                 color: Theme.of(context).colorScheme.errorContainer,
