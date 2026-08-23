@@ -20,6 +20,7 @@ class MendologStore {
     : _writer = writer ?? preferences.setString;
 
   bool get recoveryRequired => _protectedPayload != null;
+  String? get protectedPayload => _protectedPayload;
 
   MendologData load() {
     final value = preferences.getString(_key);
