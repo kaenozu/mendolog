@@ -8,49 +8,74 @@ typedef MendologWriter = Future<bool> Function(String key, String value);
 
 class MendologStore {
   static const _key = 'mendolog.data.v1';
+  static const _recoveryKey = 'mendolog.data.recovery.v1';
   static const int _currentSchemaVersion = 2;
 
   final SharedPreferences preferences;
   final MendologWriter _writer;
 
+  String? _protectedPayload;
+
   MendologStore(this.preferences, {MendologWriter? writer})
     : _writer = writer ?? preferences.setString;
 
+  bool get recoveryRequired => _protectedPayload != null;
+
   MendologData load() {
     final value = preferences.getString(_key);
-    if (value == null) return const MendologData();
+    if (value == null) {
+      _protectedPayload = null;
+      return const MendologData();
+    }
 
     try {
       final decoded = jsonDecode(value);
       if (decoded is! Map<String, dynamic>) {
-        return const MendologData();
+        return _protectAndReturnEmpty(value);
       }
 
       final schemaVersion = decoded['schemaVersion'];
       if (schemaVersion == null) {
         // Legacy v1 payloads stored the MendologData JSON directly.
-        return MendologData.decode(value);
+        final data = MendologData.decode(value);
+        _protectedPayload = null;
+        return data;
       }
       if (schemaVersion != _currentSchemaVersion) {
         // Fail closed for future/unknown schemas. The original preference is
-        // deliberately left untouched so a newer app can still recover it.
-        return const MendologData();
+        // left untouched, and all writes are blocked until recovery is handled.
+        return _protectAndReturnEmpty(value);
       }
 
       final data = decoded['data'];
       if (data is! Map<String, dynamic>) {
-        return const MendologData();
+        return _protectAndReturnEmpty(value);
       }
-      return MendologData.decode(jsonEncode(data));
+      final loaded = MendologData.decode(jsonEncode(data));
+      _protectedPayload = null;
+      return loaded;
     } on Object {
-      // A corrupt payload must not make startup fail and must not be replaced
-      // automatically with an empty payload. Recovery remains possible from
-      // the untouched value in SharedPreferences.
-      return const MendologData();
+      // Never let a corrupt payload crash startup. Mark it as protected so the
+      // next mutation cannot silently replace the only recoverable copy.
+      return _protectAndReturnEmpty(value);
     }
   }
 
+  MendologData _protectAndReturnEmpty(String payload) {
+    _protectedPayload = payload;
+    return const MendologData();
+  }
+
   Future<void> save(MendologData data) async {
+    final protectedPayload = _protectedPayload;
+    if (protectedPayload != null) {
+      final backedUp = await preferences.setString(_recoveryKey, protectedPayload);
+      if (!backedUp) {
+        throw StateError('破損した保存データを保護できなかったため、新しい内容を保存できません。');
+      }
+      throw StateError('保存データの復旧が必要なため、新しい内容を保存していません。');
+    }
+
     final payload = jsonEncode({
       'schemaVersion': _currentSchemaVersion,
       'data': jsonDecode(data.encode()),
