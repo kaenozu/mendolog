@@ -88,7 +88,7 @@ class _MendologHomeState extends State<MendologHome> {
     final clean = canonicalizeTarget(target);
     if (clean.isEmpty) return;
     final event = FrictionEvent(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: generateEventId(),
       category: category,
       target: clean,
       occurredAt: DateTime.now(),
@@ -374,14 +374,16 @@ class _MendologHomeState extends State<MendologHome> {
                   ),
                 );
                 if (confirmed != true) return false;
-                return _commitMutation(
-                  (current) => MendologData(
-                    events: current.events
-                        .where((item) => item.id != event.id)
-                        .toList(),
+                return _commitMutation((current) {
+                  final index = current.events.indexWhere(
+                    (item) => item.id == event.id,
+                  );
+                  if (index < 0) return current;
+                  return MendologData(
+                    events: [...current.events]..removeAt(index),
                     improvements: current.improvements,
-                  ),
-                );
+                  );
+                });
               },
               background: Container(
                 color: Theme.of(context).colorScheme.errorContainer,

@@ -22,6 +22,17 @@ void main() {
     expect(canonicalizeTarget('  財布  '), '財布');
   });
 
+  test('generates unique RFC 4122 style event ids', () {
+    final ids = List.generate(10000, (_) => generateEventId());
+    expect(ids.toSet().length, ids.length);
+    final pattern = RegExp(
+      r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+    );
+    for (final id in ids) {
+      expect(pattern.hasMatch(id), isTrue, reason: id);
+    }
+  });
+
   test(
     'suggests improvement after three matching events in the last 30 days',
     () {

@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:mendolog/domain.dart';
 import 'package:mendolog/main.dart';
 import 'package:mendolog/storage.dart';
 
@@ -101,6 +103,49 @@ void main() {
     await recordViaUI();
 
     expect(store.load().events.single.canonicalTarget, '爪切り');
+  });
+
+  testWidgets('removes a single event even when legacy ids are duplicated', (
+    tester,
+  ) async {
+    final legacyId = DateTime.now().microsecondsSinceEpoch.toString();
+    final duplicated = MendologData(
+      events: [
+        FrictionEvent(
+          id: legacyId,
+          category: FrictionCategory.searched,
+          target: '鍵',
+          occurredAt: DateTime(2026, 8, 1, 9),
+        ),
+        FrictionEvent(
+          id: legacyId,
+          category: FrictionCategory.forgot,
+          target: '傘',
+          occurredAt: DateTime(2026, 8, 2, 9),
+        ),
+      ],
+    );
+    SharedPreferences.setMockInitialValues({
+      'mendolog.data.v1': jsonEncode({
+        'schemaVersion': 2,
+        'data': jsonDecode(duplicated.encode()),
+      }),
+    });
+    final store = MendologStore(await SharedPreferences.getInstance());
+
+    await tester.pumpWidget(MendologApp(store: store));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('履歴'));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.text('探した · 鍵'), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('削除'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('鍵'), findsNothing);
+    expect(find.textContaining('忘れた · 傘'), findsOneWidget);
+    expect(store.load().events.single.canonicalTarget, '傘');
   });
 
   testWidgets('keeps bottom actions clear of Android navigation insets', (

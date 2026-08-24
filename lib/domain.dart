@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 enum FrictionCategory {
   searched('探した', '🔍'),
@@ -18,6 +19,22 @@ FrictionCategory categoryFromJson(String value) =>
       (category) => category.name == value,
       orElse: () => FrictionCategory.other,
     );
+
+final Random _idRandom = Random.secure();
+
+/// RFC 4122 version-4 style identifier. Unlike timestamp-derived ids, records
+/// created in the same microsecond never collide.
+String generateEventId() {
+  final bytes = List<int>.generate(16, (_) => _idRandom.nextInt(0x100));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  final hex = bytes
+      .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+      .join();
+  return '${hex.substring(0, 8)}-${hex.substring(8, 12)}'
+      '-${hex.substring(12, 16)}-${hex.substring(16, 20)}'
+      '-${hex.substring(20)}';
+}
 
 String canonicalizeTarget(String value) {
   final normalized = value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '');
