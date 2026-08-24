@@ -70,6 +70,97 @@ void main() {
     expect(preferences.getString('mendolog.data.v1'), corrupt);
   });
 
+  Future<void> drainEvents(int turns) async {
+    for (var i = 0; i < turns; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
+  test('corrupt payload is quarantined before saving resumes', () async {
+    const corrupt = '{not-json';
+    SharedPreferences.setMockInitialValues({'mendolog.data.v1': corrupt});
+    final preferences = await SharedPreferences.getInstance();
+    final store = MendologStore(preferences);
+
+    expect(store.load().events, isEmpty);
+    expect(store.hasQuarantinedPayload, isTrue);
+    expect(store.isSavingBlocked, isTrue);
+
+    await drainEvents(10);
+
+    expect(store.isSavingBlocked, isFalse);
+    expect(
+      preferences.getString('mendolog_payload_quarantine'),
+      corrupt,
+    );
+    expect(preferences.getString('mendolog.data.v1'), corrupt);
+
+    await store.save(const MendologData());
+    final migrated = jsonDecode(preferences.getString('mendolog.data.v1')!);
+    expect(migrated['schemaVersion'], 2);
+    expect(preferences.getString('mendolog_payload_quarantine'), corrupt);
+  });
+
+  test('failed quarantine keeps blocking saves on the original payload', () async {
+    const corrupt =
+        '{"schemaVersion":2,"data":{"events":"broken","improvements":[]}}';
+    SharedPreferences.setMockInitialValues({'mendolog.data.v1': corrupt});
+    final preferences = await SharedPreferences.getInstance();
+    var quarantineAttempts = 0;
+    final store = MendologStore(
+      preferences,
+      writer: (_, _) async {
+        quarantineAttempts++;
+        return false;
+      },
+    );
+
+    store.load();
+    await drainEvents(10);
+
+    expect(store.hasQuarantinedPayload, isTrue);
+    expect(store.isSavingBlocked, isTrue);
+    expect(quarantineAttempts, 1);
+    await expectLater(
+      store.save(const MendologData()),
+      throwsA(isA<StateError>()),
+    );
+    expect(preferences.getString('mendolog.data.v1'), corrupt);
+  });
+
+  test('an already quarantined identical payload unblocks saving', () async {
+    const corrupt = '{not-json';
+    SharedPreferences.setMockInitialValues({
+      'mendolog.data.v1': corrupt,
+      'mendolog_payload_quarantine': corrupt,
+    });
+    final preferences = await SharedPreferences.getInstance();
+    final store = MendologStore(preferences);
+
+    expect(store.load().events, isEmpty);
+    expect(store.hasQuarantinedPayload, isTrue);
+    expect(store.isSavingBlocked, isFalse);
+
+    await store.save(const MendologData());
+    final migrated = jsonDecode(preferences.getString('mendolog.data.v1')!);
+    expect(migrated['schemaVersion'], 2);
+  });
+
+  test('a different pre-existing quarantine copy keeps saving blocked', () async {
+    const corrupt = '{not-json';
+    SharedPreferences.setMockInitialValues({
+      'mendolog.data.v1': corrupt,
+      'mendolog_payload_quarantine': 'older-incident-backup',
+    });
+    final preferences = await SharedPreferences.getInstance();
+    final store = MendologStore(preferences);
+
+    expect(store.load().events, isEmpty);
+    expect(store.isSavingBlocked, isTrue);
+    expect(preferences.getString('mendolog_payload_quarantine'), 'older-incident-backup');
+    expect(preferences.getString('mendolog.data.v1'), corrupt);
+  });
+
   test('invalid typed or date data fails closed without mutation', () async {
     final invalid = jsonEncode({
       'schemaVersion': 2,

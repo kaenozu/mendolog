@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -57,6 +59,48 @@ void main() {
     await tester.tap(find.text('履歴'));
     await tester.pumpAndSettle();
     expect(find.textContaining('まだ記録がありません'), findsOneWidget);
+  });
+
+  testWidgets('shows recovery banner and gates records behind quarantine', (
+    tester,
+  ) async {
+    const corrupt = '{not-json';
+    final gate = Completer<bool>();
+    SharedPreferences.setMockInitialValues({'mendolog.data.v1': corrupt});
+    final preferences = await SharedPreferences.getInstance();
+    final store = MendologStore(preferences, writer: (key, value) async {
+      if (key == 'mendolog_payload_quarantine') {
+        return gate.future;
+      }
+      return preferences.setString(key, value);
+    });
+
+    await tester.pumpWidget(MendologApp(store: store));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('退避が完了するまで記録を保存できません'), findsOneWidget);
+
+    Future<void> recordViaUI() async {
+      await tester.tap(find.textContaining('探した'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '爪切り');
+      await tester.tap(find.text('記録する'));
+      await tester.pumpAndSettle();
+    }
+
+    await recordViaUI();
+
+    expect(find.textContaining('退避中のため、まだ記録を保存できません'), findsOneWidget);
+    expect(store.load().events, isEmpty);
+
+    gate.complete(true);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('新しい記録から始めましょう'), findsOneWidget);
+
+    await recordViaUI();
+
+    expect(store.load().events.single.canonicalTarget, '爪切り');
   });
 
   testWidgets('keeps bottom actions clear of Android navigation insets', (
