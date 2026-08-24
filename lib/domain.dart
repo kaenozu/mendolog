@@ -53,9 +53,34 @@ DateTime _exclusiveEnd(DateTime instant) =>
     instant.add(const Duration(microseconds: 1));
 
 String canonicalizeTarget(String value) {
-  final normalized = value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '');
+  // 表示値は全角ASCII/全角スペースを半角へ寄せ、空白を圧縮して整える。
+  final display = _collapseWhitespace(_toHalfWidth(value)).trim();
+  if (display.isEmpty) return display;
+  // 照合キーはさらに小文字化し、表記ゆれを決定的に潰す。
+  final key = _collapseWhitespace(display.toLowerCase());
+
   const aliases = {'つめきり': '爪切り', '爪きり': '爪切り', 'ネイルクリッパー': '爪切り'};
-  return aliases[normalized] ?? value.trim().replaceAll(RegExp(r'\s+'), ' ');
+  return aliases[key] ?? display;
+}
+
+/// 全角ASCII(FF01-FF5E)を半角へ、全角スペース(U+3000)を半角スペースへ寄せ、
+/// 連続する空白を1つに圧縮する。NFKCの完全互換ではないが、本アプリが扱う
+// 対象名の表記ゆれ(全角/半角・連続空白)はこれで吸収できる。
+String _collapseWhitespace(String value) =>
+    value.replaceAll('\u3000', ' ').replaceAll(RegExp(r'\s+'), ' ');
+
+String _toHalfWidth(String value) {
+  final buffer = StringBuffer();
+  for (final code in value.codeUnits) {
+    if (code >= 0xFF01 && code <= 0xFF5E) {
+      buffer.writeCharCode(code - 0xFEE0);
+    } else if (code == 0x3000) {
+      buffer.writeCharCode(0x20);
+    } else {
+      buffer.writeCharCode(code);
+    }
+  }
+  return buffer.toString();
 }
 
 class FrictionEvent {

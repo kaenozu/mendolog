@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ のデータ抽出(cloud-backup / device-transfer)から除外する。
+     ユーザーデータは端末ローカル完結という仕様に合わせる。 -->
+<data-extraction-rules>
+    <cloud-backup />
+    <device-transfer />
+</data-extraction-rules>
