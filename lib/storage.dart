@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -56,9 +57,14 @@ class MendologStore {
         return _rejectUnreadable(value);
       }
       return MendologData.decode(jsonEncode(data));
-    } on Object {
+    } on Object catch (error, stackTrace) {
       // A corrupt payload must not make startup fail and must not be replaced
       // automatically with an empty payload. Quarantining keeps it recoverable.
+      developer.log(
+        '保存データの解析に失敗したため元値を退避します。',
+        error: error,
+        stackTrace: stackTrace,
+      );
       return _rejectUnreadable(value);
     }
   }
@@ -102,9 +108,14 @@ class MendologStore {
         throw StateError('退避キーの書き込みが拒否されました。');
       }
       _isSavingBlocked = false;
-    } on Object {
+    } on Object catch (error, stackTrace) {
       // Fail closed: without a secured copy the original value must never be
       // overwritten by later saves.
+      developer.log(
+        '破損ペイロードの退避に失敗したため保存をブロックします。',
+        error: error,
+        stackTrace: stackTrace,
+      );
       _isSavingBlocked = true;
     }
   }

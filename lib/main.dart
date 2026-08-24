@@ -48,6 +48,21 @@ class _MendologHomeState extends State<MendologHome> {
 
   int tab = 0;
   Future<void> _mutationQueue = Future<void>.value();
+  final List<TextEditingController> _ephemeralControllers = [];
+
+  TextEditingController _newEphemeralController() {
+    final controller = TextEditingController();
+    _ephemeralControllers.add(controller);
+    return controller;
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _ephemeralControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 
   Future<bool> _commitMutation(
     MendologData Function(MendologData current) buildNext,
@@ -75,7 +90,9 @@ class _MendologHomeState extends State<MendologHome> {
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('保存できませんでした。内容は変更されていません。もう一度お試しください。')),
+            const SnackBar(
+              content: Text('保存できませんでした。内容は変更されていません。もう一度お試しください。'),
+            ),
           );
         }
         result.complete(false);
@@ -102,7 +119,7 @@ class _MendologHomeState extends State<MendologHome> {
   }
 
   Future<void> _openRecorder(FrictionCategory category) async {
-    final controller = TextEditingController();
+    final controller = _newEphemeralController();
     final selected = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -171,7 +188,7 @@ class _MendologHomeState extends State<MendologHome> {
   }
 
   Future<void> _startImprovement(ImprovementSuggestion suggestion) async {
-    final detailsController = TextEditingController();
+    final detailsController = _newEphemeralController();
     final details = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(

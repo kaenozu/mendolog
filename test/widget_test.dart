@@ -41,10 +41,7 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final preferences = await SharedPreferences.getInstance();
-    final store = MendologStore(
-      preferences,
-      writer: (_, _) async => false,
-    );
+    final store = MendologStore(preferences, writer: (_, _) async => false);
 
     await tester.pumpWidget(MendologApp(store: store));
     await tester.pumpAndSettle();
@@ -70,12 +67,15 @@ void main() {
     final gate = Completer<bool>();
     SharedPreferences.setMockInitialValues({'mendolog.data.v1': corrupt});
     final preferences = await SharedPreferences.getInstance();
-    final store = MendologStore(preferences, writer: (key, value) async {
-      if (key == 'mendolog_payload_quarantine') {
-        return gate.future;
-      }
-      return preferences.setString(key, value);
-    });
+    final store = MendologStore(
+      preferences,
+      writer: (key, value) async {
+        if (key == 'mendolog_payload_quarantine') {
+          return gate.future;
+        }
+        return preferences.setString(key, value);
+      },
+    );
 
     await tester.pumpWidget(MendologApp(store: store));
     await tester.pumpAndSettle();

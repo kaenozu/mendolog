@@ -125,14 +125,23 @@ void main() {
     );
 
     final edgeData = MendologData(events: [at(atFrom)]);
-    expect(edgeData.recentCount(category: FrictionCategory.searched, now: now), 1);
+    expect(
+      edgeData.recentCount(category: FrictionCategory.searched, now: now),
+      1,
+    );
     expect(edgeData.suggestions(now), isEmpty);
 
     final nowData = MendologData(events: [at(atNow)]);
-    expect(nowData.recentCount(category: FrictionCategory.searched, now: now), 1);
+    expect(
+      nowData.recentCount(category: FrictionCategory.searched, now: now),
+      1,
+    );
 
     final futureData = MendologData(events: [at(future)]);
-    expect(futureData.recentCount(category: FrictionCategory.searched, now: now), 0);
+    expect(
+      futureData.recentCount(category: FrictionCategory.searched, now: now),
+      0,
+    );
     expect(futureData.suggestions(now), isEmpty);
   });
 
