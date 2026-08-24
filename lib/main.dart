@@ -363,38 +363,7 @@ class _MendologHomeState extends State<MendologHome> {
             return Dismissible(
               key: ValueKey(event.id),
               direction: DismissDirection.endToStart,
-              confirmDismiss: (_) async {
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('記録を削除しますか？'),
-                    content: Text(
-                      '${event.category.label} · ${event.canonicalTarget}',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('キャンセル'),
-                      ),
-                      FilledButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('削除'),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirmed != true) return false;
-                return _commitMutation((current) {
-                  final index = current.events.indexWhere(
-                    (item) => item.id == event.id,
-                  );
-                  if (index < 0) return current;
-                  return MendologData(
-                    events: [...current.events]..removeAt(index),
-                    improvements: current.improvements,
-                  );
-                });
-              },
+              confirmDismiss: (_) => _confirmDelete(event),
               background: Container(
                 color: Theme.of(context).colorScheme.errorContainer,
                 alignment: Alignment.centerRight,
@@ -413,10 +382,46 @@ class _MendologHomeState extends State<MendologHome> {
                   '${event.category.label} · ${event.canonicalTarget}',
                 ),
                 subtitle: Text(_formatDate(event.occurredAt.toLocal())),
+                // スワイプ削除はTalkBackから操作できないため、明示的な
+                // 削除ボタン(意味ラベル付き)を並行して提供する。
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: 'この記録を削除',
+                  onPressed: () => _confirmDelete(event),
+                ),
               ),
             );
           },
         );
+
+  Future<bool> _confirmDelete(FrictionEvent event) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('記録を削除しますか？'),
+        content: Text('${event.category.label} · ${event.canonicalTarget}'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('削除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return false;
+    return _commitMutation((current) {
+      final index = current.events.indexWhere((item) => item.id == event.id);
+      if (index < 0) return current;
+      return MendologData(
+        events: [...current.events]..removeAt(index),
+        improvements: current.improvements,
+      );
+    });
+  }
 
   Widget _insights() {
     final now = DateTime.now();

@@ -151,4 +151,34 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('history exposes an accessible delete action with confirmation', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    final store = MendologStore(preferences);
+    await tester.pumpWidget(MendologApp(store: store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('探した'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '爪切り');
+    await tester.tap(find.text('記録する'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('履歴'));
+    await tester.pumpAndSettle();
+
+    // スワイプ不可の支援技術向けに、意味ラベル付き削除ボタンを提供する。
+    expect(find.byTooltip('この記録を削除'), findsOneWidget);
+    await tester.tap(find.byTooltip('この記録を削除'));
+    await tester.pumpAndSettle();
+    expect(find.text('記録を削除しますか？'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, '削除'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('まだ記録がありません'), findsOneWidget);
+  });
 }
