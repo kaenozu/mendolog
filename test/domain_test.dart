@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mendolog/domain.dart';
 
@@ -59,6 +61,79 @@ void main() {
       ],
     );
     expect(data.suggestions(now), isEmpty);
+  });
+
+  test('serializes timestamps as UTC and restores the same instant', () {
+    final local = DateTime(2026, 8, 10, 21);
+    final data = MendologData(
+      events: [
+        FrictionEvent(
+          id: 'utc-1',
+          category: FrictionCategory.searched,
+          target: '爪切り',
+          occurredAt: local.toUtc(),
+        ),
+      ],
+    );
+
+    final payload = data.encode();
+    expect(
+      payload.contains('"occurredAt":"${local.toUtc().toIso8601String()}'),
+      isTrue,
+    );
+
+    final restored = MendologData.decode(payload);
+    expect(restored.events.single.occurredAt.isUtc, isTrue);
+    expect(
+      restored.events.single.occurredAt.microsecondsSinceEpoch,
+      local.microsecondsSinceEpoch,
+    );
+  });
+
+  test('legacy offset-less timestamps keep their original instant', () {
+    final restored = MendologData.decode(
+      jsonEncode({
+        'events': [
+          {
+            'id': 'legacy',
+            'category': 'searched',
+            'target': '爪切り',
+            'occurredAt': '2026-08-10T21:00:00.000',
+          },
+        ],
+        'improvements': [],
+      }),
+    );
+
+    final expected = DateTime(2026, 8, 10, 21);
+    expect(restored.events.single.occurredAt.isUtc, isTrue);
+    expect(
+      restored.events.single.occurredAt.microsecondsSinceEpoch,
+      expected.toUtc().microsecondsSinceEpoch,
+    );
+  });
+
+  test('30-day window edges are consistent across aggregation paths', () {
+    final atFrom = now.subtract(const Duration(days: 30));
+    final atNow = now;
+    final future = now.add(const Duration(days: 1));
+    FrictionEvent at(DateTime at) => FrictionEvent(
+      id: '$at',
+      category: FrictionCategory.searched,
+      target: '爪切り',
+      occurredAt: at,
+    );
+
+    final edgeData = MendologData(events: [at(atFrom)]);
+    expect(edgeData.recentCount(category: FrictionCategory.searched, now: now), 1);
+    expect(edgeData.suggestions(now), isEmpty);
+
+    final nowData = MendologData(events: [at(atNow)]);
+    expect(nowData.recentCount(category: FrictionCategory.searched, now: now), 1);
+
+    final futureData = MendologData(events: [at(future)]);
+    expect(futureData.recentCount(category: FrictionCategory.searched, now: now), 0);
+    expect(futureData.suggestions(now), isEmpty);
   });
 
   test(

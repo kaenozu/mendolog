@@ -36,6 +36,22 @@ String generateEventId() {
       '-${hex.substring(20)}';
 }
 
+/// オフセット付き(またはUTC)ならその瞬間、オフセットなしなら旧形式として
+/// ローカル時刻と解釈した上で、常にUTCの [DateTime] へ正規化する。
+DateTime parseTimestamp(String value) {
+  final parsed = DateTime.parse(value);
+  return parsed.toUtc();
+}
+
+const Duration _recentWindow = Duration(days: 30);
+
+/// 半開区間 [from, to) に含まれるかどうか。toがnullならfrom以降すべて。
+bool isWithinWindow(DateTime date, DateTime from, DateTime? to) =>
+    !date.isBefore(from) && (to == null || date.isBefore(to));
+
+DateTime _exclusiveEnd(DateTime instant) =>
+    instant.add(const Duration(microseconds: 1));
+
 String canonicalizeTarget(String value) {
   final normalized = value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '');
   const aliases = {'つめきり': '爪切り', '爪きり': '爪切り', 'ネイルクリッパー': '爪切り'};
@@ -68,7 +84,7 @@ class FrictionEvent {
     id: json['id'] as String,
     category: categoryFromJson(json['category'] as String),
     target: json['target'] as String,
-    occurredAt: DateTime.parse(json['occurredAt'] as String),
+    occurredAt: parseTimestamp(json['occurredAt'] as String),
   );
 }
 
@@ -102,7 +118,7 @@ class Improvement {
     canonicalTarget: json['canonicalTarget'] as String,
     title: json['title'] as String,
     details: json['details'] as String? ?? '',
-    startedAt: DateTime.parse(json['startedAt'] as String),
+    startedAt: parseTimestamp(json['startedAt'] as String),
   );
 }
 
@@ -143,28 +159,33 @@ class MendologData {
 
   int count({
     required FrictionCategory category,
-    required String target,
+    String? target,
     required DateTime from,
     DateTime? to,
   }) {
-    final canonical = canonicalizeTarget(target);
-    return events.where((event) {
-      final date = event.occurredAt;
-      return event.category == category &&
-          event.canonicalTarget == canonical &&
-          !date.isBefore(from) &&
-          (to == null || date.isBefore(to));
-    }).length;
-  }
-
-  List<ImprovementSuggestion> suggestions(DateTime now) {
-    final from = now.subtract(const Duration(days: 30));
-    final keys = events
+    final canonical = target == null ? null : canonicalizeTarget(target);
+    return events
         .where(
           (event) =>
-              !event.occurredAt.isBefore(from) &&
-              !event.occurredAt.isAfter(now),
+              event.category == category &&
+              (canonical == null || event.canonicalTarget == canonical) &&
+              isWithinWindow(event.occurredAt, from, to),
         )
+        .length;
+  }
+
+  int recentCount({required FrictionCategory category, required DateTime now}) =>
+      count(
+        category: category,
+        from: now.subtract(_recentWindow),
+        to: _exclusiveEnd(now),
+      );
+
+  List<ImprovementSuggestion> suggestions(DateTime now) {
+    final from = now.subtract(_recentWindow);
+    final end = _exclusiveEnd(now);
+    final keys = events
+        .where((event) => isWithinWindow(event.occurredAt, from, end))
         .map((event) => '${event.category.name}|${event.canonicalTarget}')
         .toSet();
     return keys
@@ -178,7 +199,7 @@ class MendologData {
             category: category,
             target: target,
             from: from,
-            to: now.add(const Duration(microseconds: 1)),
+            to: end,
           );
           if (total < 3) return null;
           return ImprovementSuggestion(
@@ -195,12 +216,10 @@ class MendologData {
   }
 
   Comparison comparison(Improvement improvement, DateTime now) {
-    final beforeStart = improvement.startedAt.subtract(
-      const Duration(days: 30),
-    );
-    final afterEnd = improvement.startedAt.add(const Duration(days: 30));
+    final beforeStart = improvement.startedAt.subtract(_recentWindow);
+    final afterEnd = improvement.startedAt.add(_recentWindow);
     final effectiveAfterEnd = now.isBefore(afterEnd)
-        ? now.add(const Duration(microseconds: 1))
+        ? _exclusiveEnd(now)
         : afterEnd;
     return Comparison(
       before: count(

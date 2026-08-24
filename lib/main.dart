@@ -91,7 +91,7 @@ class _MendologHomeState extends State<MendologHome> {
       id: generateEventId(),
       category: category,
       target: clean,
-      occurredAt: DateTime.now(),
+      occurredAt: DateTime.now().toUtc(),
     );
     await _commitMutation(
       (current) => MendologData(
@@ -204,7 +204,7 @@ class _MendologHomeState extends State<MendologHome> {
       canonicalTarget: suggestion.canonicalTarget,
       title: suggestion.title,
       details: details,
-      startedAt: DateTime.now(),
+      startedAt: DateTime.now().toUtc(),
     );
     await _commitMutation(
       (current) => MendologData(
@@ -402,7 +402,7 @@ class _MendologHomeState extends State<MendologHome> {
                 title: Text(
                   '${event.category.label} · ${event.canonicalTarget}',
                 ),
-                subtitle: Text(_formatDate(event.occurredAt)),
+                subtitle: Text(_formatDate(event.occurredAt.toLocal())),
               ),
             );
           },
@@ -412,15 +412,7 @@ class _MendologHomeState extends State<MendologHome> {
     final now = DateTime.now();
     final rows = <Widget>[];
     for (final category in FrictionCategory.values) {
-      final count = data.events
-          .where(
-            (event) =>
-                event.category == category &&
-                event.occurredAt.isAfter(
-                  now.subtract(const Duration(days: 30)),
-                ),
-          )
-          .length;
+      final count = data.recentCount(category: category, now: now);
       if (count > 0) {
         rows.add(
           ListTile(
