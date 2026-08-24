@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -53,57 +52,40 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(store.load().events, isEmpty);
-    expect(find.textContaining('保存できませんでした'), findsOneWidget);
+    expect(find.textContaining('保存に失敗しました'), findsOneWidget);
 
     await tester.tap(find.text('履歴'));
     await tester.pumpAndSettle();
     expect(find.textContaining('まだ記録がありません'), findsOneWidget);
   });
 
-  testWidgets('shows recovery banner and gates records behind quarantine', (
-    tester,
-  ) async {
-    const corrupt = '{not-json';
-    final gate = Completer<bool>();
-    SharedPreferences.setMockInitialValues({'mendolog.data.v1': corrupt});
-    final preferences = await SharedPreferences.getInstance();
-    final store = MendologStore(
-      preferences,
-      writer: (key, value) async {
-        if (key == 'mendolog_payload_quarantine') {
-          return gate.future;
-        }
-        return preferences.setString(key, value);
-      },
-    );
+  testWidgets(
+    'shows recovery banner and blocks records behind protected payload',
+    (tester) async {
+      const corrupt = '{not-json';
+      SharedPreferences.setMockInitialValues({'mendolog.data.v1': corrupt});
+      final preferences = await SharedPreferences.getInstance();
+      final store = MendologStore(preferences);
 
-    await tester.pumpWidget(MendologApp(store: store));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(MendologApp(store: store));
+      await tester.pumpAndSettle();
 
-    expect(find.textContaining('退避が完了するまで記録を保存できません'), findsOneWidget);
+      // 破損ペイロードは即座に退避対象となり、復旧バナーが表示される。
+      expect(store.recoveryRequired, isTrue);
+      expect(find.textContaining('端末内に退避しました'), findsOneWidget);
 
-    Future<void> recordViaUI() async {
       await tester.tap(find.textContaining('探した'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '爪切り');
       await tester.tap(find.text('記録する'));
       await tester.pumpAndSettle();
-    }
 
-    await recordViaUI();
-
-    expect(find.textContaining('退避中のため、まだ記録を保存できません'), findsOneWidget);
-    expect(store.load().events, isEmpty);
-
-    gate.complete(true);
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('新しい記録から始めましょう'), findsOneWidget);
-
-    await recordViaUI();
-
-    expect(store.load().events.single.canonicalTarget, '爪切り');
-  });
+      // 最初の保存試行で破損ペイロードがrecoveryキーへ退避され、記録は保存されない。
+      expect(preferences.getString('mendolog.data.recovery.v1'), corrupt);
+      expect(find.textContaining('復旧が必要'), findsOneWidget);
+      expect(store.load().events, isEmpty);
+    },
+  );
 
   testWidgets('removes a single event even when legacy ids are duplicated', (
     tester,

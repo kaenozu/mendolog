@@ -69,15 +69,6 @@ class _MendologHomeState extends State<MendologHome> {
   ) {
     final result = Completer<bool>();
     _mutationQueue = _mutationQueue.then((_) async {
-      if (widget.store.isSavingBlocked) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('破損した旧データの退避中のため、まだ記録を保存できません。')),
-          );
-        }
-        result.complete(false);
-        return;
-      }
       final next = buildNext(data);
       try {
         await widget.store.save(next);
@@ -87,6 +78,13 @@ class _MendologHomeState extends State<MendologHome> {
         }
         setState(() => data = next);
         result.complete(true);
+      } on StateError catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(error.message)));
+        }
+        result.complete(false);
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -238,7 +236,7 @@ class _MendologHomeState extends State<MendologHome> {
       top: false,
       child: Column(
         children: [
-          if (widget.store.hasQuarantinedPayload) _recoveryBanner(),
+          if (widget.store.recoveryRequired) _recoveryBanner(),
           Expanded(
             child: IndexedStack(
               index: tab,
@@ -268,33 +266,28 @@ class _MendologHomeState extends State<MendologHome> {
     ),
   );
 
-  Widget _recoveryBanner() => FutureBuilder<void>(
-    future: widget.store.quarantineCompletion,
-    builder: (context, snapshot) {
-      final scheme = Theme.of(context).colorScheme;
-      final blocked = widget.store.isSavingBlocked;
-      return Material(
-        color: scheme.errorContainer,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: [
-              Icon(Icons.archive_outlined, color: scheme.onErrorContainer),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  blocked
-                      ? '前回のデータが破損したため、退避が完了するまで記録を保存できません。'
-                      : '前回のデータは破損していたため端末内に退避しました。新しい記録から始めましょう。',
-                  style: TextStyle(color: scheme.onErrorContainer),
-                ),
+  Widget _recoveryBanner() {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Icon(Icons.archive_outlined, color: scheme.onErrorContainer),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '前回のデータは読み取れなかったため端末内に退避しました。'
+                '新しい記録から始めましょう。',
+                style: TextStyle(color: scheme.onErrorContainer),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
-    },
-  );
+      ),
+    );
+  }
 
   Widget _home() {
     final suggestions = data.suggestions(DateTime.now());
