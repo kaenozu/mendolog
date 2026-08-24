@@ -7,15 +7,39 @@ on:
 
 jobs:
   quality:
-    name: analyze + test + build
+    name: format + analyze + test + build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.44.9
       - run: flutter pub get
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
       - run: flutter analyze
       - run: flutter test
       - run: flutter build apk --debug
         name: Debug APK smoke build
+
+  integration:
+    name: integration test (emulator)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.9
+      - run: flutter pub get
+      - name: Run integration tests on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          script: flutter test integration_test
