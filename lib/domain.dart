@@ -174,12 +174,14 @@ class MendologData {
         .length;
   }
 
-  int recentCount({required FrictionCategory category, required DateTime now}) =>
-      count(
-        category: category,
-        from: now.subtract(_recentWindow),
-        to: _exclusiveEnd(now),
-      );
+  int recentCount({
+    required FrictionCategory category,
+    required DateTime now,
+  }) => count(
+    category: category,
+    from: now.subtract(_recentWindow),
+    to: _exclusiveEnd(now),
+  );
 
   List<ImprovementSuggestion> suggestions(DateTime now) {
     final from = now.subtract(_recentWindow);
