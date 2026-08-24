@@ -14,6 +14,18 @@ if (hasReleaseKey) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+// Release tasks must never fall back to the debug signature. Debug builds do
+// not request a release task, so they keep working without key.properties.
+val isReleaseRequested = gradle.startParameter.taskNames.any {
+    it.contains("Release", ignoreCase = true)
+}
+if (isReleaseRequested && !hasReleaseKey) {
+    throw GradleException(
+        "Release build requested but key.properties is missing. " +
+            "Provide android/key.properties with the release signing credentials.",
+    )
+}
+
 android {
     namespace = "com.mendolog.mendolog"
     compileSdk = flutter.compileSdkVersion
@@ -47,6 +59,8 @@ android {
 
     buildTypes {
         release {
+            // The guard above fails any release task without key.properties;
+            // this branch only keeps configuration valid for other variants.
             signingConfig = if (hasReleaseKey) {
                 signingConfigs.getByName("release")
             } else {

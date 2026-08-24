@@ -7,18 +7,21 @@ import 'package:mendolog/domain.dart';
 import 'package:mendolog/storage.dart';
 
 void main() {
-  test('save throws when SharedPreferences-style writer returns false', () async {
-    SharedPreferences.setMockInitialValues({});
-    final store = MendologStore(
-      await SharedPreferences.getInstance(),
-      writer: (_, _) async => false,
-    );
+  test(
+    'save throws when SharedPreferences-style writer returns false',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = MendologStore(
+        await SharedPreferences.getInstance(),
+        writer: (_, _) async => false,
+      );
 
-    await expectLater(
-      store.save(const MendologData()),
-      throwsA(isA<StateError>()),
-    );
-  });
+      await expectLater(
+        store.save(const MendologData()),
+        throwsA(isA<StateError>()),
+      );
+    },
+  );
 
   test('save propagates writer exceptions', () async {
     SharedPreferences.setMockInitialValues({});
@@ -109,28 +112,31 @@ void main() {
     expect(preferences.getString('mendolog.data.recovery.v1'), invalid);
   });
 
-  test('unknown future schema is rejected, backed up, and write-blocked', () async {
-    final future = jsonEncode({
-      'schemaVersion': 999,
-      'data': {'events': [], 'improvements': []},
-    });
-    SharedPreferences.setMockInitialValues({'mendolog.data.v1': future});
-    final preferences = await SharedPreferences.getInstance();
-    final store = MendologStore(preferences);
+  test(
+    'unknown future schema is rejected, backed up, and write-blocked',
+    () async {
+      final future = jsonEncode({
+        'schemaVersion': 999,
+        'data': {'events': [], 'improvements': []},
+      });
+      SharedPreferences.setMockInitialValues({'mendolog.data.v1': future});
+      final preferences = await SharedPreferences.getInstance();
+      final store = MendologStore(preferences);
 
-    final loaded = store.load();
+      final loaded = store.load();
 
-    expect(loaded.events, isEmpty);
-    expect(loaded.improvements, isEmpty);
-    expect(store.recoveryRequired, isTrue);
+      expect(loaded.events, isEmpty);
+      expect(loaded.improvements, isEmpty);
+      expect(store.recoveryRequired, isTrue);
 
-    await expectLater(
-      store.save(const MendologData()),
-      throwsA(isA<StateError>()),
-    );
-    expect(preferences.getString('mendolog.data.v1'), future);
-    expect(preferences.getString('mendolog.data.recovery.v1'), future);
-  });
+      await expectLater(
+        store.save(const MendologData()),
+        throwsA(isA<StateError>()),
+      );
+      expect(preferences.getString('mendolog.data.v1'), future);
+      expect(preferences.getString('mendolog.data.recovery.v1'), future);
+    },
+  );
 
   test('valid current payload clears recovery-required state', () async {
     final valid = jsonEncode({

@@ -37,9 +37,32 @@ class MendologHome extends StatefulWidget {
 }
 
 class _MendologHomeState extends State<MendologHome> {
-  late MendologData data = widget.store.load();
+  late MendologData data;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load before the first build so recovery state can drive the UI.
+    data = widget.store.load();
+  }
+
   int tab = 0;
   Future<void> _mutationQueue = Future<void>.value();
+  final List<TextEditingController> _ephemeralControllers = [];
+
+  TextEditingController _newEphemeralController() {
+    final controller = TextEditingController();
+    _ephemeralControllers.add(controller);
+    return controller;
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _ephemeralControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 
   Future<bool> _commitMutation(
     MendologData Function(MendologData current) buildNext,
@@ -55,10 +78,19 @@ class _MendologHomeState extends State<MendologHome> {
         }
         setState(() => data = next);
         result.complete(true);
+      } on StateError catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(error.message)));
+        }
+        result.complete(false);
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('保存できませんでした。内容は変更されていません。もう一度お試しください。')),
+            const SnackBar(
+              content: Text('保存できませんでした。内容は変更されていません。もう一度お試しください。'),
+            ),
           );
         }
         result.complete(false);
@@ -71,10 +103,10 @@ class _MendologHomeState extends State<MendologHome> {
     final clean = canonicalizeTarget(target);
     if (clean.isEmpty) return;
     final event = FrictionEvent(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: generateEventId(),
       category: category,
       target: clean,
-      occurredAt: DateTime.now(),
+      occurredAt: DateTime.now().toUtc(),
     );
     await _commitMutation(
       (current) => MendologData(
@@ -85,7 +117,7 @@ class _MendologHomeState extends State<MendologHome> {
   }
 
   Future<void> _openRecorder(FrictionCategory category) async {
-    final controller = TextEditingController();
+    final controller = _newEphemeralController();
     final selected = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -154,7 +186,7 @@ class _MendologHomeState extends State<MendologHome> {
   }
 
   Future<void> _startImprovement(ImprovementSuggestion suggestion) async {
-    final detailsController = TextEditingController();
+    final detailsController = _newEphemeralController();
     final details = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -187,7 +219,7 @@ class _MendologHomeState extends State<MendologHome> {
       canonicalTarget: suggestion.canonicalTarget,
       title: suggestion.title,
       details: details,
-      startedAt: DateTime.now(),
+      startedAt: DateTime.now().toUtc(),
     );
     await _commitMutation(
       (current) => MendologData(
@@ -202,9 +234,16 @@ class _MendologHomeState extends State<MendologHome> {
     appBar: AppBar(title: const Text('めんどログ'), centerTitle: false),
     body: SafeArea(
       top: false,
-      child: IndexedStack(
-        index: tab,
-        children: [_home(), _history(), _insights()],
+      child: Column(
+        children: [
+          if (widget.store.recoveryRequired) _recoveryBanner(),
+          Expanded(
+            child: IndexedStack(
+              index: tab,
+              children: [_home(), _history(), _insights()],
+            ),
+          ),
+        ],
       ),
     ),
     bottomNavigationBar: SafeArea(
@@ -226,6 +265,29 @@ class _MendologHomeState extends State<MendologHome> {
       ),
     ),
   );
+
+  Widget _recoveryBanner() {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Icon(Icons.archive_outlined, color: scheme.onErrorContainer),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '前回のデータは読み取れなかったため端末内に退避しました。'
+                '新しい記録から始めましょう。',
+                style: TextStyle(color: scheme.onErrorContainer),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _home() {
     final suggestions = data.suggestions(DateTime.now());
@@ -322,14 +384,16 @@ class _MendologHomeState extends State<MendologHome> {
                   ),
                 );
                 if (confirmed != true) return false;
-                return _commitMutation(
-                  (current) => MendologData(
-                    events: current.events
-                        .where((item) => item.id != event.id)
-                        .toList(),
+                return _commitMutation((current) {
+                  final index = current.events.indexWhere(
+                    (item) => item.id == event.id,
+                  );
+                  if (index < 0) return current;
+                  return MendologData(
+                    events: [...current.events]..removeAt(index),
                     improvements: current.improvements,
-                  ),
-                );
+                  );
+                });
               },
               background: Container(
                 color: Theme.of(context).colorScheme.errorContainer,
@@ -348,7 +412,7 @@ class _MendologHomeState extends State<MendologHome> {
                 title: Text(
                   '${event.category.label} · ${event.canonicalTarget}',
                 ),
-                subtitle: Text(_formatDate(event.occurredAt)),
+                subtitle: Text(_formatDate(event.occurredAt.toLocal())),
               ),
             );
           },
@@ -358,15 +422,7 @@ class _MendologHomeState extends State<MendologHome> {
     final now = DateTime.now();
     final rows = <Widget>[];
     for (final category in FrictionCategory.values) {
-      final count = data.events
-          .where(
-            (event) =>
-                event.category == category &&
-                event.occurredAt.isAfter(
-                  now.subtract(const Duration(days: 30)),
-                ),
-          )
-          .length;
+      final count = data.recentCount(category: category, now: now);
       if (count > 0) {
         rows.add(
           ListTile(

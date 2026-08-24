@@ -70,7 +70,10 @@ class MendologStore {
   Future<void> save(MendologData data) async {
     final protectedPayload = _protectedPayload;
     if (protectedPayload != null) {
-      final backedUp = await preferences.setString(_recoveryKey, protectedPayload);
+      final backedUp = await preferences.setString(
+        _recoveryKey,
+        protectedPayload,
+      );
       if (!backedUp) {
         throw StateError('破損した保存データを保護できなかったため、新しい内容を保存できません。');
       }
