@@ -20,6 +20,11 @@ void main() {
 
   test('canonicalizes common Japanese target spelling variants', () {
     expect(canonicalizeTarget('  つめきり '), '爪切り');
+
+    // 全角ASCIIは半角へ寄せ、全角スペース/連続空白も正規化される。
+    expect(canonicalizeTarget('ａｂｃ'), 'abc');
+    expect(canonicalizeTarget('散歩　　'), '散歩');
+    expect(canonicalizeTarget('abc　　def'), 'abc def');
     expect(canonicalizeTarget('ネイルクリッパー'), '爪切り');
     expect(canonicalizeTarget('  財布  '), '財布');
   });
