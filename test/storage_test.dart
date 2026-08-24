@@ -50,6 +50,7 @@ void main() {
 
     final loaded = store.load();
     expect(loaded.events.single.id, 'legacy-1');
+    expect(store.recoveryRequired, isFalse);
 
     await store.save(loaded);
     final migrated = jsonDecode(preferences.getString('mendolog.data.v1')!);
@@ -57,7 +58,7 @@ void main() {
     expect(migrated['data']['events'].single['id'], 'legacy-1');
   });
 
-  test('malformed JSON does not crash or overwrite original payload', () async {
+  test('malformed JSON is protected and subsequent save is blocked', () async {
     const corrupt = '{not-json';
     SharedPreferences.setMockInitialValues({'mendolog.data.v1': corrupt});
     final preferences = await SharedPreferences.getInstance();
@@ -67,10 +68,18 @@ void main() {
 
     expect(loaded.events, isEmpty);
     expect(loaded.improvements, isEmpty);
+    expect(store.recoveryRequired, isTrue);
     expect(preferences.getString('mendolog.data.v1'), corrupt);
+
+    await expectLater(
+      store.save(const MendologData()),
+      throwsA(isA<StateError>()),
+    );
+    expect(preferences.getString('mendolog.data.v1'), corrupt);
+    expect(preferences.getString('mendolog.data.recovery.v1'), corrupt);
   });
 
-  test('invalid typed or date data fails closed without mutation', () async {
+  test('invalid typed or date data is protected and blocks writes', () async {
     final invalid = jsonEncode({
       'schemaVersion': 2,
       'data': {
@@ -90,10 +99,17 @@ void main() {
     final store = MendologStore(preferences);
 
     expect(store.load().events, isEmpty);
+    expect(store.recoveryRequired, isTrue);
+
+    await expectLater(
+      store.save(const MendologData()),
+      throwsA(isA<StateError>()),
+    );
     expect(preferences.getString('mendolog.data.v1'), invalid);
+    expect(preferences.getString('mendolog.data.recovery.v1'), invalid);
   });
 
-  test('unknown future schema is rejected and preserved', () async {
+  test('unknown future schema is rejected, backed up, and write-blocked', () async {
     final future = jsonEncode({
       'schemaVersion': 999,
       'data': {'events': [], 'improvements': []},
@@ -106,6 +122,25 @@ void main() {
 
     expect(loaded.events, isEmpty);
     expect(loaded.improvements, isEmpty);
+    expect(store.recoveryRequired, isTrue);
+
+    await expectLater(
+      store.save(const MendologData()),
+      throwsA(isA<StateError>()),
+    );
     expect(preferences.getString('mendolog.data.v1'), future);
+    expect(preferences.getString('mendolog.data.recovery.v1'), future);
+  });
+
+  test('valid current payload clears recovery-required state', () async {
+    final valid = jsonEncode({
+      'schemaVersion': 2,
+      'data': {'events': [], 'improvements': []},
+    });
+    SharedPreferences.setMockInitialValues({'mendolog.data.v1': valid});
+    final store = MendologStore(await SharedPreferences.getInstance());
+
+    expect(store.load().events, isEmpty);
+    expect(store.recoveryRequired, isFalse);
   });
 }
