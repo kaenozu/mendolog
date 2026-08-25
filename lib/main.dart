@@ -458,7 +458,7 @@ class _MendologHomeState extends State<MendologHome> {
             return ListTile(
               title: Text('${item.canonicalTarget} · ${item.title}'),
               subtitle: Text(
-                '${item.details.isEmpty ? '詳細未設定' : item.details}\n改善前 ${comparison.before}回 → 改善後 ${comparison.after}回',
+                '${item.details.isEmpty ? '詳細未設定' : item.details}\n${comparison.isComplete ? '改善前 ${comparison.before}回 → 改善後 ${comparison.after}回' : '観測中（${comparison.observedAfterDays}/30日）: 改善前 ${comparison.before}回 → 現在 ${comparison.after}回'}',
               ),
             );
           }),

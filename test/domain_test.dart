@@ -172,6 +172,25 @@ void main() {
       final comparison = data.comparison(improvement, now);
       expect(comparison.before, 3);
       expect(comparison.after, 1);
+      expect(comparison.observedAfterDays, 10);
+      expect(comparison.isComplete, isFalse);
+    },
+  );
+
+  test(
+    'marks comparison complete only after a full 30-day observation window',
+    () {
+      final startedAt = now.subtract(const Duration(days: 30));
+      final improvement = Improvement(
+        category: FrictionCategory.searched,
+        canonicalTarget: '爪切り',
+        title: '定位置を決める',
+        startedAt: startedAt,
+      );
+      final comparison = MendologData().comparison(improvement, now);
+
+      expect(comparison.observedAfterDays, 30);
+      expect(comparison.isComplete, isTrue);
     },
   );
 
