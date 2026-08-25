@@ -41,7 +41,10 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
-          target: google_apis
+          # The integration suite uses Flutter/test-only behavior and does not
+          # require Play services. The default image avoids the hosted runner's
+          # userdata-space failure seen with google_apis.
+          target: default
           arch: x86_64
           disk-size: 4096M
           ram-size: 1536M
