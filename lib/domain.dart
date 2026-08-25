@@ -162,9 +162,18 @@ class ImprovementSuggestion {
 }
 
 class Comparison {
-  const Comparison({required this.before, required this.after});
+  const Comparison({
+    required this.before,
+    required this.after,
+    required this.observedAfter,
+  });
+
   final int before;
   final int after;
+  final Duration observedAfter;
+
+  bool get isComplete => observedAfter >= const Duration(days: 30);
+  int get observedAfterDays => observedAfter.inDays;
 }
 
 class MendologData {
@@ -244,10 +253,11 @@ class MendologData {
 
   Comparison comparison(Improvement improvement, DateTime now) {
     final beforeStart = improvement.startedAt.subtract(_recentWindow);
-    final afterEnd = improvement.startedAt.add(_recentWindow);
-    final effectiveAfterEnd = now.isBefore(afterEnd)
-        ? _exclusiveEnd(now)
-        : afterEnd;
+    final elapsed = now.difference(improvement.startedAt);
+    final observedAfter = elapsed.isNegative
+        ? Duration.zero
+        : (elapsed > _recentWindow ? _recentWindow : elapsed);
+    final effectiveAfterEnd = improvement.startedAt.add(observedAfter);
     return Comparison(
       before: count(
         category: improvement.category,
@@ -259,8 +269,9 @@ class MendologData {
         category: improvement.category,
         target: improvement.canonicalTarget,
         from: improvement.startedAt,
-        to: effectiveAfterEnd,
+        to: effectiveAfterEnd.add(const Duration(microseconds: 1)),
       ),
+      observedAfter: observedAfter,
     );
   }
 
