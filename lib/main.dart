@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'domain.dart';
+import 'export.dart';
 import 'storage.dart';
 
 Future<void> main() async {
@@ -229,9 +231,23 @@ class _MendologHomeState extends State<MendologHome> {
     );
   }
 
+  Future<void> _exportData() async {
+    await Share.share(encodeForExport(data), subject: 'めんどログのデータ');
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('めんどログ'), centerTitle: false),
+    appBar: AppBar(
+      title: const Text('めんどログ'),
+      centerTitle: false,
+      actions: [
+        IconButton(
+          onPressed: _exportData,
+          icon: const Icon(Icons.ios_share_outlined),
+          tooltip: 'データを書き出す',
+        ),
+      ],
+    ),
     body: SafeArea(
       top: false,
       child: Column(
