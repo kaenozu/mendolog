@@ -15,7 +15,7 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final store = MendologStore(await SharedPreferences.getInstance());
-    await tester.pumpWidget(MendologApp(store: store));
+    await tester.pumpWidget(MendologApp(key: UniqueKey(), store: store));
     await tester.pumpAndSettle();
     final recordButton = find.byKey(const Key('record-searched-button'));
     await tester.ensureVisible(recordButton);
@@ -34,7 +34,7 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final store = MendologStore(await SharedPreferences.getInstance());
-    await tester.pumpWidget(MendologApp(store: store));
+    await tester.pumpWidget(MendologApp(key: UniqueKey(), store: store));
     await tester.pumpAndSettle();
 
     Future<void> record(String target, {bool useRecent = false}) async {
