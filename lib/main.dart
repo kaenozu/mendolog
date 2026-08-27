@@ -339,6 +339,7 @@ class _MendologHomeState extends State<MendologHome> {
           children: FrictionCategory.values
               .map(
                 (category) => FilledButton.tonal(
+                  key: Key('record-${category.name}-button'),
                   onPressed: () => _openRecorder(category),
                   child: Text('${category.emoji}  ${category.label}'),
                 ),
