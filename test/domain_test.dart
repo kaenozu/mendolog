@@ -213,6 +213,48 @@ void main() {
     expect(data.suggestions(now), isEmpty);
   });
 
+  test(
+    'completed improvements can be suggested again while history remains',
+    () {
+      final improvement = Improvement(
+        category: FrictionCategory.searched,
+        canonicalTarget: '爪切り',
+        title: '定位置を決める',
+        startedAt: now.subtract(const Duration(days: 5)),
+      ).finish(ImprovementStatus.completed, now);
+      final data = MendologData(
+        events: [
+          event('爪切り'),
+          event('爪切り', daysAgo: 5),
+          event('爪切り', daysAgo: 12),
+        ],
+        improvements: [improvement],
+      );
+      expect(data.suggestions(now), hasLength(1));
+      expect(data.improvements.single.status, ImprovementStatus.completed);
+      expect(data.improvements.single.endedAt, now.toUtc());
+    },
+  );
+
+  test('legacy v1 improvements decode as active without data loss', () {
+    final restored = MendologData.decode(
+      jsonEncode({
+        'events': [],
+        'improvements': [
+          {
+            'category': 'searched',
+            'canonicalTarget': '爪切り',
+            'title': '定位置を決める',
+            'details': '',
+            'startedAt': now.toIso8601String(),
+          },
+        ],
+      }),
+    );
+    expect(restored.improvements.single.isActive, isTrue);
+    expect(restored.improvements.single.endedAt, isNull);
+  });
+
   test('round trips improvement details through local JSON storage', () {
     final improvement = Improvement(
       category: FrictionCategory.searched,

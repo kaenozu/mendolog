@@ -234,6 +234,19 @@ class _MendologHomeState extends State<MendologHome> {
     );
   }
 
+  Future<void> _finishImprovement(
+    Improvement improvement,
+    ImprovementStatus status,
+  ) async {
+    await _commitMutation((current) {
+      final index = current.improvements.indexOf(improvement);
+      if (index < 0 || !current.improvements[index].isActive) return current;
+      final updated = [...current.improvements];
+      updated[index] = improvement.finish(status, DateTime.now().toUtc());
+      return MendologData(events: current.events, improvements: updated);
+    });
+  }
+
   Future<void> _exportData() async {
     await Share.share(encodeForExport(data), subject: 'めんどログのデータ');
   }
@@ -482,8 +495,27 @@ class _MendologHomeState extends State<MendologHome> {
             return ListTile(
               title: Text('${item.canonicalTarget} · ${item.title}'),
               subtitle: Text(
-                '${item.details.isEmpty ? '詳細未設定' : item.details}\n${comparison.isComplete ? '改善前 ${comparison.before}回 → 改善後 ${comparison.after}回' : '観測中（${comparison.observedAfterDays}/30日）: 改善前 ${comparison.before}回 → 現在 ${comparison.after}回'}',
+                '${item.details.isEmpty ? '詳細未設定' : item.details}\n'
+                '${item.isActive ? (comparison.isComplete ? '改善前 ${comparison.before}回 → 改善後 ${comparison.after}回' : '観測中（${comparison.observedAfterDays}/30日）: 改善前 ${comparison.before}回 → 現在 ${comparison.after}回') : '${item.status == ImprovementStatus.completed ? '完了' : '中止'}: 改善前 ${comparison.before}回 → 改善後 ${comparison.after}回'}',
               ),
+              trailing: item.isActive
+                  ? PopupMenuButton<ImprovementStatus>(
+                      tooltip: '改善の状態を更新',
+                      onSelected: (status) => _finishImprovement(item, status),
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: ImprovementStatus.completed,
+                          child: Text('改善できた'),
+                        ),
+                        PopupMenuItem(
+                          value: ImprovementStatus.abandoned,
+                          child: Text('効果なし・中止'),
+                        ),
+                      ],
+                    )
+                  : Text(
+                      item.status == ImprovementStatus.completed ? '完了' : '中止',
+                    ),
             );
           }),
         ],
