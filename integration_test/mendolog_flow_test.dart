@@ -15,9 +15,11 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final store = MendologStore(await SharedPreferences.getInstance());
-    await tester.pumpWidget(MendologApp(store: store));
+    await tester.pumpWidget(MendologApp(key: UniqueKey(), store: store));
     await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('探した'));
+    final recordButton = find.byKey(const Key('record-searched-button'));
+    await tester.ensureVisible(recordButton);
+    await tester.tap(recordButton);
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '鍵');
     await tester.tap(find.text('記録する'));
@@ -32,11 +34,13 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final store = MendologStore(await SharedPreferences.getInstance());
-    await tester.pumpWidget(MendologApp(store: store));
+    await tester.pumpWidget(MendologApp(key: UniqueKey(), store: store));
     await tester.pumpAndSettle();
 
     Future<void> record(String target, {bool useRecent = false}) async {
-      await tester.tap(find.textContaining('探した').first);
+      final recordButton = find.byKey(const Key('record-searched-button'));
+      await tester.ensureVisible(recordButton);
+      await tester.tap(recordButton);
       await tester.pumpAndSettle();
       if (useRecent) {
         await tester.tap(find.text(target).first);
@@ -64,7 +68,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('改善する'), findsOneWidget);
 
-    await tester.tap(find.text('改善する'));
+    final improvementButton = find.text('改善する');
+    await tester.ensureVisible(improvementButton);
+    await tester.tap(improvementButton);
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '洗面所の右側の引き出し');
     await tester.tap(find.text('改善を始める'));
@@ -81,7 +87,9 @@ void main() {
 
     await tester.tap(find.text('履歴'));
     await tester.pumpAndSettle();
-    await tester.drag(find.text('探した · 爪切り').first, const Offset(-500, 0));
+    final deleteButton = find.byTooltip('この記録を削除').first;
+    await tester.ensureVisible(deleteButton);
+    await tester.tap(deleteButton);
     await tester.pumpAndSettle();
     await tester.tap(find.text('削除'));
     await tester.pumpAndSettle();

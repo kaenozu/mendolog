@@ -23,8 +23,10 @@ void main() {
     expect(find.textContaining('待った'), findsOneWidget);
     expect(find.textContaining('面倒だった'), findsOneWidget);
     expect(find.textContaining('その他'), findsOneWidget);
-    expect(find.textContaining('繰り返す面倒を記録すると'), findsOneWidget);
-    expect(find.textContaining('改善候補が見えてきます'), findsOneWidget);
+    expect(find.textContaining('記録→整理→次の行動'), findsOneWidget);
+    expect(find.textContaining('無料で使える'), findsOneWidget);
+    expect(find.textContaining('広告が表示できなくても'), findsOneWidget);
+    expect(find.byKey(const Key('monetization-banner')), findsOneWidget);
 
     await tester.tap(find.textContaining('探した'));
     await tester.pumpAndSettle();

@@ -1,15 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'domain.dart';
+import 'ads.dart';
 import 'export.dart';
 import 'storage.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  unawaited(MobileAds.instance.initialize());
   final preferences = await SharedPreferences.getInstance();
   runApp(MendologApp(store: MendologStore(preferences)));
 }
@@ -318,10 +321,14 @@ class _MendologHomeState extends State<MendologHome> {
         Text('いま、何がめんどかった？', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 6),
         Text(
-          '繰り返す面倒を記録すると、直近30日の集計と改善候補が見えてきます。まずは1件だけ残してみましょう。記録は端末内に保存されます。',
+          '記録→整理→次の行動。繰り返す面倒を記録すると、直近30日の集計と改善候補が見えてきます。まずは1件だけ残してみましょう。記録は端末内に保存されます。',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 20),
+        const Text('無料で使えるコア機能です。広告が表示できなくても、記録・閲覧・データ書き出しはそのまま使えます。'),
+        const SizedBox(height: 8),
+        const MonetizationBanner(),
+        const SizedBox(height: 12),
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -332,6 +339,7 @@ class _MendologHomeState extends State<MendologHome> {
           children: FrictionCategory.values
               .map(
                 (category) => FilledButton.tonal(
+                  key: Key('record-${category.name}-button'),
                   onPressed: () => _openRecorder(category),
                   child: Text('${category.emoji}  ${category.label}'),
                 ),
