@@ -113,6 +113,14 @@ class FrictionEvent {
   );
 }
 
+enum ImprovementStatus { active, completed, abandoned }
+
+ImprovementStatus improvementStatusFromJson(String? value) =>
+    ImprovementStatus.values.firstWhere(
+      (status) => status.name == value,
+      orElse: () => ImprovementStatus.active,
+    );
+
 class Improvement {
   const Improvement({
     required this.category,
@@ -120,6 +128,8 @@ class Improvement {
     required this.title,
     this.details = '',
     required this.startedAt,
+    this.status = ImprovementStatus.active,
+    this.endedAt,
   });
 
   final FrictionCategory category;
@@ -127,8 +137,26 @@ class Improvement {
   final String title;
   final String details;
   final DateTime startedAt;
+  final ImprovementStatus status;
+  final DateTime? endedAt;
 
   String get key => '${category.name}|$canonicalTarget';
+  bool get isActive => status == ImprovementStatus.active;
+
+  Improvement finish(ImprovementStatus nextStatus, DateTime at) {
+    if (nextStatus == ImprovementStatus.active) {
+      throw ArgumentError('An active improvement cannot finish as active');
+    }
+    return Improvement(
+      category: category,
+      canonicalTarget: canonicalTarget,
+      title: title,
+      details: details,
+      startedAt: startedAt,
+      status: nextStatus,
+      endedAt: at.toUtc(),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     'category': category.name,
@@ -136,6 +164,8 @@ class Improvement {
     'title': title,
     'details': details,
     'startedAt': startedAt.toIso8601String(),
+    'status': status.name,
+    if (endedAt != null) 'endedAt': endedAt!.toIso8601String(),
   };
 
   factory Improvement.fromJson(Map<String, dynamic> json) => Improvement(
@@ -144,6 +174,10 @@ class Improvement {
     title: json['title'] as String,
     details: json['details'] as String? ?? '',
     startedAt: parseTimestamp(json['startedAt'] as String),
+    status: improvementStatusFromJson(json['status'] as String?),
+    endedAt: json['endedAt'] is String
+        ? parseTimestamp(json['endedAt'] as String)
+        : null,
   );
 }
 
@@ -229,7 +263,9 @@ class MendologData {
           final parts = key.split('|');
           final category = categoryFromJson(parts.first);
           final target = parts.skip(1).join('|');
-          final improvementExists = improvements.any((item) => item.key == key);
+          final improvementExists = improvements.any(
+            (item) => item.key == key && item.isActive,
+          );
           if (improvementExists) return null;
           final total = count(
             category: category,

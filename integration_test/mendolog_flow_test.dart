@@ -38,7 +38,13 @@ void main() {
     await tester.pumpAndSettle();
 
     Future<void> record(String target, {bool useRecent = false}) async {
+      // Re-select the recording tab after each modal interaction. This keeps
+      // the helper independent from the previous route/tab state on the
+      // emulator and makes the repeated-record regression deterministic.
+      await tester.tap(find.text('記録').last);
+      await tester.pumpAndSettle();
       final recordButton = find.byKey(const Key('record-searched-button'));
+      expect(recordButton, findsOneWidget);
       await tester.ensureVisible(recordButton);
       await tester.tap(recordButton);
       await tester.pumpAndSettle();
