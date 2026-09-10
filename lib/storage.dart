@@ -6,6 +6,21 @@ import 'domain.dart';
 
 typedef MendologWriter = Future<bool> Function(String key, String value);
 
+/// Safety policy for the current single-JSON SharedPreferences backend.
+///
+/// The limit is intentionally fail-closed: existing data is never truncated or
+/// deleted automatically. If a mutation would exceed the cap, the existing
+/// stored payload is left untouched so the user can still export/recover it.
+abstract final class MendologStoragePolicy {
+  static const int migrationRecommendedBytes = 4 * 1024 * 1024;
+  static const int maxPayloadBytes = 8 * 1024 * 1024;
+
+  static int encodedBytes(String payload) => utf8.encode(payload).length;
+
+  static bool migrationRecommended(String payload) =>
+      encodedBytes(payload) >= migrationRecommendedBytes;
+}
+
 class MendologStore {
   static const _key = 'mendolog.data.v1';
   static const _recoveryKey = 'mendolog.data.recovery.v1';
@@ -13,11 +28,16 @@ class MendologStore {
 
   final SharedPreferences preferences;
   final MendologWriter _writer;
+  final int maxPayloadBytes;
 
   String? _protectedPayload;
 
-  MendologStore(this.preferences, {MendologWriter? writer})
-    : _writer = writer ?? preferences.setString;
+  MendologStore(
+    this.preferences, {
+    MendologWriter? writer,
+    this.maxPayloadBytes = MendologStoragePolicy.maxPayloadBytes,
+  }) : assert(maxPayloadBytes > 0),
+       _writer = writer ?? preferences.setString;
 
   bool get recoveryRequired => _protectedPayload != null;
   String? get protectedPayload => _protectedPayload;
@@ -84,6 +104,14 @@ class MendologStore {
       'schemaVersion': _currentSchemaVersion,
       'data': jsonDecode(data.encode()),
     });
+    final payloadBytes = MendologStoragePolicy.encodedBytes(payload);
+    if (payloadBytes > maxPayloadBytes) {
+      throw StateError(
+        '保存データが安全上限を超えるため、新しい内容を保存していません。'
+        '現在の記録は保持されています。データを書き出して保管してください。',
+      );
+    }
+
     final saved = await _writer(_key, payload);
     if (!saved) {
       throw StateError('めんどログの保存に失敗しました。');
