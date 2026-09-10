@@ -11,8 +11,14 @@ void main() {
   });
 
   test('migrationRecommended turns on at the soft byte boundary', () {
-    final below = 'a' * (MendologStoragePolicy.migrationRecommendedBytes - 1);
-    final at = 'a' * MendologStoragePolicy.migrationRecommendedBytes;
+    final below = List.filled(
+      MendologStoragePolicy.migrationRecommendedBytes - 1,
+      'a',
+    ).join();
+    final at = List.filled(
+      MendologStoragePolicy.migrationRecommendedBytes,
+      'a',
+    ).join();
 
     expect(MendologStoragePolicy.migrationRecommended(below), isFalse);
     expect(MendologStoragePolicy.migrationRecommended(at), isTrue);
