@@ -32,6 +32,8 @@ void main() {
         bytes >= MendologStoragePolicy.migrationRecommendedBytes;
     final hardLimitExceeded = bytes > MendologStoragePolicy.maxPayloadBytes;
 
+    // Benchmark output is intentionally emitted to stdout for local/CI capture.
+    // ignore: avoid_print
     print(
       'events=$count '
       'payloadBytes=$bytes '
