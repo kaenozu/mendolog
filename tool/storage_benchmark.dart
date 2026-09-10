@@ -28,8 +28,8 @@ void main() {
     }
 
     final bytes = MendologStoragePolicy.encodedBytes(wrappedPayload);
-    final softLimitReached = bytes >=
-        MendologStoragePolicy.migrationRecommendedBytes;
+    final softLimitReached =
+        bytes >= MendologStoragePolicy.migrationRecommendedBytes;
     final hardLimitExceeded = bytes > MendologStoragePolicy.maxPayloadBytes;
 
     print(
@@ -50,7 +50,8 @@ MendologData _fixture(int count) {
       count,
       (index) => FrictionEvent(
         id: 'benchmark-event-${index.toString().padLeft(5, '0')}',
-        category: FrictionCategory.values[index % FrictionCategory.values.length],
+        category:
+            FrictionCategory.values[index % FrictionCategory.values.length],
         target: 'benchmark target ${index % 50}',
         occurredAt: start.add(Duration(hours: index * 6)),
       ),
