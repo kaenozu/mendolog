@@ -24,47 +24,52 @@ void main() {
     expect(MendologStoragePolicy.migrationRecommended(at), isTrue);
   });
 
-  test('oversized save fails before writer and preserves current payload', () async {
-    final current = MendologData(
-      events: [
-        FrictionEvent(
-          id: 'existing-1',
-          category: FrictionCategory.searched,
-          target: '鍵',
-          occurredAt: DateTime.utc(2026, 9, 1),
+  test(
+    'oversized save fails before writer and preserves current payload',
+    () async {
+      final current = MendologData(
+        events: [
+          FrictionEvent(
+            id: 'existing-1',
+            category: FrictionCategory.searched,
+            target: '鍵',
+            occurredAt: DateTime.utc(2026, 9, 1),
+          ),
+        ],
+      );
+      final currentPayload = '{"schemaVersion":2,"data":${current.encode()}}';
+      SharedPreferences.setMockInitialValues({
+        'mendolog.data.v1': currentPayload,
+      });
+      final preferences = await SharedPreferences.getInstance();
+      var writerCalled = false;
+      final store = MendologStore(
+        preferences,
+        maxPayloadBytes: 32,
+        writer: (_, _) async {
+          writerCalled = true;
+          return true;
+        },
+      );
+
+      final loaded = store.load();
+      expect(loaded.events.single.id, 'existing-1');
+
+      await expectLater(
+        store.save(loaded),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('安全上限'),
+          ),
         ),
-      ],
-    );
-    final currentPayload = '{"schemaVersion":2,"data":${current.encode()}}';
-    SharedPreferences.setMockInitialValues({'mendolog.data.v1': currentPayload});
-    final preferences = await SharedPreferences.getInstance();
-    var writerCalled = false;
-    final store = MendologStore(
-      preferences,
-      maxPayloadBytes: 32,
-      writer: (_, _) async {
-        writerCalled = true;
-        return true;
-      },
-    );
+      );
 
-    final loaded = store.load();
-    expect(loaded.events.single.id, 'existing-1');
-
-    await expectLater(
-      store.save(loaded),
-      throwsA(
-        isA<StateError>().having(
-          (error) => error.message,
-          'message',
-          contains('安全上限'),
-        ),
-      ),
-    );
-
-    expect(writerCalled, isFalse);
-    expect(preferences.getString('mendolog.data.v1'), currentPayload);
-  });
+      expect(writerCalled, isFalse);
+      expect(preferences.getString('mendolog.data.v1'), currentPayload);
+    },
+  );
 
   test('payload at configured limit is still writable', () async {
     SharedPreferences.setMockInitialValues({});
