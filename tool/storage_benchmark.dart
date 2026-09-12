@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:mendolog/domain.dart';
-import 'package:mendolog/storage.dart';
+import 'package:mendolog/storage_policy.dart';
 
 void main() {
   for (final count in const [1000, 5000, 10000]) {
