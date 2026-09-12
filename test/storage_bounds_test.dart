@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:mendolog/domain.dart';
 import 'package:mendolog/storage.dart';
+import 'package:mendolog/storage_policy.dart';
 
 void main() {
   test('encodedBytes measures UTF-8 bytes rather than Dart string length', () {
