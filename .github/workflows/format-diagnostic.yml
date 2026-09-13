@@ -1,0 +1,24 @@
+name: format diagnostic
+
+on:
+  push:
+    branches:
+      - refactor/issue-20-mutation-controller
+
+permissions:
+  contents: read
+
+jobs:
+  format-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.9
+      - name: Show formatter diff
+        shell: bash
+        run: |
+          dart format lib/main.dart lib/mutation_controller.dart test/mutation_controller_test.dart
+          git diff -- lib/main.dart lib/mutation_controller.dart test/mutation_controller_test.dart
