@@ -6,19 +6,29 @@ on:
       - refactor/issue-20-mutation-controller
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  format-diff:
+  format-and-commit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: refactor/issue-20-mutation-controller
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           flutter-version: 3.44.9
-      - name: Show formatter diff
+      - name: Apply formatter output
         shell: bash
         run: |
           dart format lib/main.dart lib/mutation_controller.dart test/mutation_controller_test.dart
-          git diff -- lib/main.dart lib/mutation_controller.dart test/mutation_controller_test.dart
+          if git diff --quiet -- lib/main.dart lib/mutation_controller.dart test/mutation_controller_test.dart; then
+            echo "Formatter output already clean."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/main.dart lib/mutation_controller.dart test/mutation_controller_test.dart
+          git commit -m "style: apply dart formatter"
+          git push origin HEAD:refactor/issue-20-mutation-controller
