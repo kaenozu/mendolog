@@ -88,9 +88,7 @@ class _MendologHomeState extends State<MendologHome> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('保存できませんでした。内容は変更されていません。もう一度お試しください。'),
-          ),
+          const SnackBar(content: Text('保存できませんでした。内容は変更されていません。もう一度お試しください。')),
         );
       }
       return false;
@@ -199,18 +197,14 @@ class _MendologHomeState extends State<MendologHome> {
       ),
     );
     if (!mounted || details == null) return;
-    await _runMutation(
-      () => _mutations.startImprovement(suggestion, details),
-    );
+    await _runMutation(() => _mutations.startImprovement(suggestion, details));
   }
 
   Future<void> _finishImprovement(
     Improvement improvement,
     ImprovementStatus status,
   ) async {
-    await _runMutation(
-      () => _mutations.finishImprovement(improvement, status),
-    );
+    await _runMutation(() => _mutations.finishImprovement(improvement, status));
   }
 
   Future<void> _exportData() async {

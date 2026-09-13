@@ -102,9 +102,7 @@ class MendologMutationController {
     );
   });
 
-  Future<bool> _commit(
-    MendologData Function(MendologData current) buildNext,
-  ) {
+  Future<bool> _commit(MendologData Function(MendologData current) buildNext) {
     final result = Completer<bool>();
     _mutationQueue = _mutationQueue.then((_) async {
       try {

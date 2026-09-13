@@ -48,36 +48,36 @@ void main() {
     expect(persistence.saved.single.events.single.id, 'event-1');
   });
 
-  test('failed save leaves state unchanged and later mutation can recover', () async {
-    var fail = true;
-    final persistence = FakePersistence(
-      onSave: (_) async {
-        if (fail) throw StateError('save failed');
-      },
-    );
-    var id = 0;
-    final controller = MendologMutationController(
-      persistence,
-      now: () => now,
-      generateId: () => 'event-${++id}',
-    );
+  test(
+    'failed save leaves state unchanged and later mutation can recover',
+    () async {
+      var fail = true;
+      final persistence = FakePersistence(
+        onSave: (_) async {
+          if (fail) throw StateError('save failed');
+        },
+      );
+      var id = 0;
+      final controller = MendologMutationController(
+        persistence,
+        now: () => now,
+        generateId: () => 'event-${++id}',
+      );
 
-    await expectLater(
-      controller.record(FrictionCategory.other, '失敗する記録'),
-      throwsA(isA<StateError>()),
-    );
-    expect(controller.data.events, isEmpty);
-    expect(persistence.saved, isEmpty);
+      await expectLater(
+        controller.record(FrictionCategory.other, '失敗する記録'),
+        throwsA(isA<StateError>()),
+      );
+      expect(controller.data.events, isEmpty);
+      expect(persistence.saved, isEmpty);
 
-    fail = false;
-    expect(
-      await controller.record(FrictionCategory.other, '次の記録'),
-      isTrue,
-    );
-    expect(controller.data.events, hasLength(1));
-    expect(controller.data.events.single.target, '次の記録');
-    expect(persistence.saved, hasLength(1));
-  });
+      fail = false;
+      expect(await controller.record(FrictionCategory.other, '次の記録'), isTrue);
+      expect(controller.data.events, hasLength(1));
+      expect(controller.data.events.single.target, '次の記録');
+      expect(persistence.saved, hasLength(1));
+    },
+  );
 
   test('delayed saves serialize concurrent mutations', () async {
     final firstSaveGate = Completer<void>();
@@ -117,9 +117,7 @@ void main() {
       target: 'レジ',
       occurredAt: now.subtract(const Duration(days: 1)),
     );
-    final persistence = FakePersistence(
-      initial: MendologData(events: [event]),
-    );
+    final persistence = FakePersistence(initial: MendologData(events: [event]));
     final controller = MendologMutationController(
       persistence,
       now: () => now,
@@ -141,7 +139,10 @@ void main() {
       improvement,
       ImprovementStatus.completed,
     );
-    expect(controller.data.improvements.single.status, ImprovementStatus.completed);
+    expect(
+      controller.data.improvements.single.status,
+      ImprovementStatus.completed,
+    );
     expect(controller.data.improvements.single.endedAt, now);
 
     await controller.deleteEvent(event);
